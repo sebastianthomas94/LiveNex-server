@@ -1,0 +1,33 @@
+# Ignore system files and directories
+.DS_Store
+Thumbs.db
+
+# Ignore log files
+*.log
+
+# Ignore Node.js dependencies for all projects
+node_modules/
+
+# Ignore user-specific environment files for all projects
+.env
+
+# Ignore build and runtime files for all projects
+/build/
+/dist/
+
+# Project-specific ignores
+api-gateway/node_modules/
+api-gateway/.env
+api-gateway/build/
+
+live-stream/node_modules/
+live-stream/.env
+live-stream/build/
+
+user/node_modules/
+user/.env
+user/build/
+
+# Ignore sensitive or configuration files
+config.ini
+secrets.json
