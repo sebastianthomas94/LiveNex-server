@@ -14,6 +14,24 @@ const userSchema = mongoose.Schema({
         type:String,
         require:true
     },
+    youtube:{
+        accessToken:String,
+        refreshTocken:String,
+        rtmpUrl:String,
+        photo: String,
+    }
+    ,
+    google:{
+        accessToken:String,
+        refreshTocken:String,
+        photo: String,
+    },
+    instagram:{
+        accessToken:String,
+        refreshTocken:String,
+        rtmpUrl:String,
+        photo: String,
+    },
 },
 
 {

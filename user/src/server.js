@@ -8,6 +8,7 @@ import { signupService, signinService, Oauth, googleCallBack, youtubeAuth, youtu
 import cookieParser from "cookie-parser";
 import passport from "passport";
 import session from "express-session";
+import { authAndSave } from "./middlewear/auth-and- cookiesave.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,10 +28,14 @@ app.use(
     saveUninitialized: true,
   })
 );
+app.use(cors({
+  origin: "http://localhost:3000",
+  methods: "*",
+  credentials: true
+}));
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use(cors());
 app.use(express.json());
 app.post("/signin", signinService );
 app.post("/signup", signupService );
@@ -40,7 +45,7 @@ app.get("/logout", (req,res)=>{
 });
 app.get("/auth/google",Oauth);
 app.get("/auth/google/callback",googleCallBack);
-app.get("/auth/youtubeauth",youtubeAuth);
+app.get("/auth/youtubeauth",authAndSave,youtubeAuth);
 app.get("/auth/youtube-oauth-callback",youtubeOauthCallback);
 
 

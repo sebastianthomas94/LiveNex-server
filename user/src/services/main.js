@@ -6,11 +6,22 @@ import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { google } from "googleapis";
-import axios from "axios";
+import {
+  createYoutubeStreams,
+  bindYoutubeBroadcastToStream,
+  startStreaming,
+} from "./youtubeService.js";
+import jwt from "jsonwebtoken";
+import {
+  saveGoogleCredentials,
+  saveYoutubeCredential,
+  getGoogleProfilePicture,
+} from "../helper/mongoUpdates.js";
+import { get } from "http";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.join(__dirname, "../../.env") });
+dotenv.config({ path: path.join(__dirname, "../.env") });
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
@@ -22,6 +33,7 @@ passport.use(
       callbackURL: process.env.CALLBACK_URL,
     },
     (accessToken, refreshToken, profile, done) => {
+      saveGoogleCredentials(accessToken, refreshToken, profile);
       return done(null, profile);
     }
   )
@@ -41,8 +53,8 @@ const youtube = google.youtube({
 const saltRounds = 10;
 
 const signupService = (req, res) => {
-  console.log("reached endpoint");
-  console.log(req.body);
+  // console.log("reached endpoint");
+  // console.log(req.body);
   const { email, password, name } = req.body;
   bcrypt.hash(password, saltRounds).then(function (hash) {
     console.log(hash);
@@ -75,7 +87,14 @@ const signinService = (req, res) => {
       if (user) {
         bcrypt.compare(password, user.password).then((result) => {
           if (result) {
-            res.status(200).json({ message: "Login successful" });
+            const user = {
+              email,
+            };
+            const token = jwt.sign(user, process.env.JWT_SECRET);
+            res
+              .cookie("jwt", token)
+              .status(200)
+              .json({ message: "Login successful" });
           } else {
             res.status(401).json({ message: "Invalid password" });
           }
@@ -116,6 +135,11 @@ const googleCallBack = (req, res) => {
         const userExits = await User.findOne({ email });
 
         if (userExits) {
+          const user = {
+            email,
+          };
+          const token = jwt.sign(user, process.env.JWT_SECRET);
+          res.cookie("jwt", token);
           res.send(`
           <script>
             window.opener.postMessage(${JSON.stringify(
@@ -141,6 +165,13 @@ const googleCallBack = (req, res) => {
 
 const youtubeAuth = (req, res) => {
   console.log("enetered at the youtube auth");
+  //console.log("browser cookies:",req.cookies.user);
+  //console.log("token test", token);
+  console.log("title query", req.query);
+  const { title, description } = req.query;
+  req.session.title = title;
+  req.session.description = description;
+  console.log("session from youtubeAuth", req.session);
   try {
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "online",
@@ -156,15 +187,16 @@ const youtubeAuth = (req, res) => {
 const youtubeOauthCallback = async (req, res) => {
   try {
     console.log("inside youtube callback");
+    // console.log("session from youtube callback:", req.session);
     const { code } = req.query;
     const { tokens } = await oauth2Client.getToken(code);
-    console.log("token", tokens);
+    //console.log(" respose from getTokens youtube:",res)
+    //console.log("token", tokens);
     const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token;
     await oauth2Client.setCredentials(tokens);
     // res.status(200).json({response:"Authorization successful! You can now start streaming."});
-    const title = "Title";
-    const description = "this i a live";
+    const { title, description } = req.session;
     const broadcastRequest = {
       snippet: {
         title,
@@ -195,15 +227,33 @@ const youtubeOauthCallback = async (req, res) => {
     });
     console.log("broadcastId:", data.id);
     const broadcastId = data.id;
-    const rtmp_url = await createYoutubeStreams(title, description, accessToken, broadcastId);
-
-    res.send(`
-          <script>
-          const rtmp = ${JSON.stringify(rtmp_url)};
-            window.opener.postMessage(rtmp,'http://localhost:3000/dashboard');
-            window.close();
-          </script>
-       `);
+    const rtmp_url = await createYoutubeStreams(
+      title,
+      description,
+      accessToken,
+      broadcastId
+    );
+    const token = req.cookies.jwt;
+    const { email } = jwt.verify(token, process.env.JWT_SECRET);
+    saveYoutubeCredential(rtmp_url, accessToken, email);
+    const user = {
+      email,
+      rtmp_url,
+    };
+    const profilePicture = await getGoogleProfilePicture(email);
+    const jsonToken = jwt.sign(user, process.env.JWT_SECRET);
+    const json = {
+      profilePicture,
+      platform : "youtube"
+    };
+    res.cookie("jwt", jsonToken).send(`
+        <script>
+          window.opener.postMessage(${JSON.stringify(
+            json
+          )},'http://localhost:3000/');
+          window.close();
+        </script>
+      `);
   } catch (err) {
     console.error("Error in OAuth callback:", err.message);
     res.status(500).send("Error in OAuth callback");
@@ -218,145 +268,3 @@ export {
   youtubeAuth,
   youtubeOauthCallback,
 };
-
-async function createYoutubeStreams(
-  youtubeBroadcastTitle,
-  youtubeBroadcastDescription,
-  authorizeToken,
-  broadcastId
-) {
-  try {
-    const data = {
-      snippet: {
-        title: youtubeBroadcastTitle,
-        description: youtubeBroadcastDescription,
-      },
-      cdn: {
-        format: "",
-        ingestionType: "rtmp",
-        frameRate: "variable",
-        resolution: "variable",
-      },
-      contentDetails: { isReusable: true },
-    };
-
-    const config = {
-      headers: {
-        Authorization: `Bearer ${authorizeToken}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-    };
-
-    const stream = await axios
-      .post(
-        `https://youtube.googleapis.com/youtube/v3/liveStreams?part=snippet%2Ccdn%2CcontentDetails%2Cstatus&key=${process.env.GOOGLE_API_KEY}`,
-        data,
-        config
-      )
-      .then(async (res) => {
-        const { ingestionAddress, streamName } = res.data.cdn.ingestionInfo;
-        const id = res.data.id;
-        console.log(
-          "ingestionAddress, streamName",
-          streamName,
-          ingestionAddress
-        );
-
-        const youtubeRTMURL = ingestionAddress + "/" + streamName;
-        console.log(youtubeRTMURL)
-/*         response.send(`
-        <script>
-        const rtmp = ${JSON.stringify(youtubeRTMURL)};
-          window.opener.postMessage(rtmp,'http://localhost:3000/dashboard');
-          window.close();
-        </script>
-      `); */
-
-        bindYoutubeBroadcastToStream(broadcastId, id, authorizeToken);
-        return {
-          id: res.data.id,
-          youtubeDestinationUrl: ingestionAddress + "/" + streamName,
-        };
-      })
-      .catch((error) => {
-        console.error(error.message);
-      });
-
-    return ;
-  } catch (err) {
-    console.error(err.message);
-  }
-}
-
-async function bindYoutubeBroadcastToStream(
-  youtubeBroadcastId,
-  youtubeStreamId,
-  youtubeAccessToken,
-  userId
-) {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${youtubeAccessToken}`,
-      Accept: "application/json",
-    },
-  };
-
-  try {
-    console.log("binding youtube_________");
-    const response = await axios.post(
-      `https://youtube.googleapis.com/youtube/v3/liveBroadcasts/bind?id=${youtubeBroadcastId}&part=snippet&streamId=${youtubeStreamId}&access_token=${youtubeAccessToken}&key=${process.env.GOOGLEAPIKEY}`,
-      {},
-      config
-    );
-    const liveChatId = response.data.snippet.liveChatId;
-    await User.updateOne(
-      { _id: userId },
-      {
-        $set: {
-          "youtube.liveChatId": liveChatId,
-        },
-      }
-    );
-    console.log("Live Chat ID: from binde streaming", liveChatId);
-    await startStreaming(youtubeBroadcastId, youtubeAccessToken, userId);
-
-    return response.data;
-  } catch (error) {
-    console.error("error message from  bind broadcast", error.message);
-    throw error;
-  }
-};
-
-
-const startStreaming = async (
-  youtubeBroadcastId,
-  youtubeAccessToken,
-  userId
-) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${youtubeAccessToken}`,
-      Accept: "application/json",
-    },
-  };
-
-  await axios
-    .post(
-      `https://youtube.googleapis.com/youtube/v3/liveBroadcasts/transition?broadcastStatus=live&id=${youtubeBroadcastId}&part=id&part=status&key=${process.env.GOOGLEAPIKEY}`,
-      config
-    )
-    .then(async (res) => {
-      const liveChatId = res.data.snippet.liveChatId;
-      await User.updateOne(
-        { _id: userId },
-        { $set: { "youtube.liveChatId": liveChatId } }
-      );
-    })
-    .catch((err) => {
-      console.log(err.response.data.error.errors);
-    });
-
-  console.log("youtube going live");
-};
-

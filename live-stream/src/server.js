@@ -23,14 +23,14 @@ const io = new Server(8200,{
   });
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
-  console.log("rtmp___________", socket.handshake.query.rtmp,typeof(socket.handshake.query.rtmp));
+  console.log("rtmp url:", socket.handshake.query.rtmp);
    socket.on("videoFrame", (data) => {
     console.log(data);
   }); 
 
 
   const ffmpegInput = inputSettings.concat(
-    youtubeSettings("rtmp://a.rtmp.youtube.com/live2/q67f-dw64-6w9s-ejts-czvk")
+    youtubeSettings(socket.handshake.query.rtmp)
   );
   const ffmpeg = spawn("ffmpeg", ffmpegInput);
   ffmpeg.on("start", (command) => {
