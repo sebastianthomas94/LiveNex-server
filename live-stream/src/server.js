@@ -8,6 +8,7 @@ import {
   youtubeSettings,
   facebookSettings,
   inputSettings,
+  customRtmpSettings
 } from "../services/ffmpeg.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +29,8 @@ io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
   console.log("youtube_rtmp url:", socket.handshake.query.youtube_rtmp);
   console.log("facebook_rtmp url:", socket.handshake.query.facebook_rtmp);
+  console.log("twitch_rtmp url:", socket.handshake.query.twitch_rtmp);
+
 
 
 
@@ -35,6 +38,7 @@ io.on("connection", (socket) => {
   const ffmpegInput = inputSettings.concat(
     youtubeSettings(socket.handshake.query.youtube_rtmp),
     facebookSettings(socket.handshake.query.facebook_rtmp),
+    customRtmpSettings(socket.handshake.query.twitch_rtmp),
   );
   const ffmpeg = spawn("ffmpeg", ffmpegInput);
   ffmpeg.on("start", (command) => {

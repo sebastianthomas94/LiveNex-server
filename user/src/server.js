@@ -16,7 +16,14 @@ import cookieParser from "cookie-parser";
 import passport from "passport";
 import session from "express-session";
 import { authAndSave } from "./middlewear/auth-and- cookiesave.js";
-import { facebookAuth, facebookOauthCallback } from "./services/facebookEndpoints.js";
+import {
+  facebookAuth,
+  facebookOauthCallback,
+} from "./services/facebookEndpoints.js";
+import {
+  twitchAuth,
+  twitchOauthCallback,
+} from "./services/twitchEndpoints.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,7 +66,8 @@ app.get("/auth/youtubeauth", authAndSave, youtubeAuth);
 app.get("/auth/youtube-oauth-callback", youtubeOauthCallback);
 app.get("/auth/fbauuth", authAndSave, facebookAuth);
 app.get("/auth/facebook-oauth-callback", facebookOauthCallback);
-
+app.get("/auth/twitchauth", authAndSave, twitchAuth);
+app.get("/auth/twitch-oauth-callback", twitchOauthCallback);
 
 app.listen(process.env.PORT, () =>
   console.log(`User server started at ${process.env.PORT}`)

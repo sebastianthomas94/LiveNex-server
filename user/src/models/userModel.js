@@ -32,6 +32,12 @@ const userSchema = mongoose.Schema({
         rtmpUrl:String,
         photo: String,
     },
+    twitch:{
+        accessToken:String,
+        refreshTocken:String,
+        rtmpUrl:String,
+        photo: String,
+    }
 },
 
 {
