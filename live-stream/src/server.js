@@ -20,17 +20,21 @@ const io = new Server(8200,{
     cors: {
       origin: "*",
     },
+    
   });
+
 io.on("connection", (socket) => {
+  // console.log("cookies from socket",socket.handshake.headers.cookie);
   console.log("User connected:", socket.id);
-  console.log("rtmp url:", socket.handshake.query.rtmp);
-   socket.on("videoFrame", (data) => {
-    console.log(data);
-  }); 
+  console.log("youtube_rtmp url:", socket.handshake.query.youtube_rtmp);
+  console.log("facebook_rtmp url:", socket.handshake.query.facebook_rtmp);
+
+
 
 
   const ffmpegInput = inputSettings.concat(
-    youtubeSettings(socket.handshake.query.rtmp)
+    youtubeSettings(socket.handshake.query.youtube_rtmp),
+    facebookSettings(socket.handshake.query.facebook_rtmp),
   );
   const ffmpeg = spawn("ffmpeg", ffmpegInput);
   ffmpeg.on("start", (command) => {
@@ -54,7 +58,7 @@ io.on("connection", (socket) => {
     console.log("FFmpeg STDERR:", data.toString());
   });
   socket.on("message", (msg) => {
-    //console.log("message ",msg)
+     console.log("frames ",msg);
     ffmpeg.stdin.write(msg);
   });
   socket.conn.on("close", (e) => {

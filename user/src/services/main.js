@@ -244,7 +244,8 @@ const youtubeOauthCallback = async (req, res) => {
     const jsonToken = jwt.sign(user, process.env.JWT_SECRET);
     const json = {
       profilePicture,
-      platform : "youtube"
+      platform : "youtube",
+      youtube_rtmp: rtmp_url
     };
     res.cookie("jwt", jsonToken).send(`
         <script>

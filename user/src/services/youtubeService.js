@@ -2,10 +2,12 @@ import axiosInstance from "./apiService.js";
 import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
+// import User from "../models/userModel.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../.env") });
+
 
 async function createYoutubeStreams(
   youtubeBroadcastTitle,
@@ -42,7 +44,7 @@ async function createYoutubeStreams(
     const youtubeRTMURL = ingestionAddress + "/" + streamName;
     console.log(youtubeRTMURL);
 
-    // await bindYoutubeBroadcastToStream(broadcastId, id, authorizeToken);
+    await bindYoutubeBroadcastToStream(broadcastId, id, authorizeToken);
 
     return youtubeRTMURL;
   } catch (err) {
@@ -56,29 +58,34 @@ async function bindYoutubeBroadcastToStream(
   youtubeAccessToken,
   userId
 ) {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${youtubeAccessToken}`,
-      Accept: "application/json",
-    },
-  };
+  // const config = {
+  //   headers: {
+  //     Authorization: `Bearer ${youtubeAccessToken}`,
+  //     Accept: "application/json",
+  //   },
+  // };
 
   try {
     console.log("binding youtube_________");
-    const response = await axios.post(
-      `https://youtube.googleapis.com/youtube/v3/liveBroadcasts/bind?id=${youtubeBroadcastId}&part=snippet&streamId=${youtubeStreamId}&access_token=${youtubeAccessToken}&key=${process.env.GOOGLEAPIKEY}`,
-      {},
-      config
-    );
+    const axios = axiosInstance(youtubeAccessToken, process.env.YT_API_BASEURL);
+    const params = {
+      id: youtubeBroadcastId,
+      part: 'snippet',
+      streamId: youtubeStreamId,
+      access_token: youtubeAccessToken,
+      key: process.env.GOOGLE_CLIENT_SECRET_KEY,
+    };
+    const url = "/liveBroadcasts/bind";
+    const response = await axios.post(url, {}, {params});
     const liveChatId = response.data.snippet.liveChatId;
-    await User.updateOne(
-      { _id: userId },
-      {
-        $set: {
-          "youtube.liveChatId": liveChatId,
-        },
-      }
-    );
+    // await User.updateOne(
+    //   { _id: userId },
+    //   {
+    //     $set: {
+    //       "youtube.liveChatId": liveChatId,
+    //     },
+    //   }
+    // );
     console.log("Live Chat ID: from binde streaming", liveChatId);
     await startStreaming(youtubeBroadcastId, youtubeAccessToken, userId);
 
@@ -93,27 +100,37 @@ const startStreaming = async (
   youtubeAccessToken,
   userId
 ) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${youtubeAccessToken}`,
-      Accept: "application/json",
-    },
-  };
+  console.log("Starting stream________");
+  // const config = {
+  //   headers: {
+  //     Authorization: `Bearer ${youtubeAccessToken}`,
+  //     Accept: "application/json",
+  //   },
+  // };
 
-  await axios
+    const axios = axiosInstance(youtubeAccessToken, process.env.YT_API_BASEURL);
+
+  const params = {
+    broadcastStatus: 'live',
+    id: youtubeBroadcastId,
+    part: 'id,status',
+    key: process.env.GOOGLE_CLIENT_SECRET_KEY,
+  };
+  const url = "/liveBroadcasts/transition";
+  axios
     .post(
-      `https://youtube.googleapis.com/youtube/v3/liveBroadcasts/transition?broadcastStatus=live&id=${youtubeBroadcastId}&part=id&part=status&key=${process.env.GOOGLEAPIKEY}`,
-      config
+      url,{},{params}
     )
     .then(async (res) => {
       const liveChatId = res.data.snippet.liveChatId;
-      await User.updateOne(
-        { _id: userId },
-        { $set: { "youtube.liveChatId": liveChatId } }
-      );
+      console.log("response form create stream==============================================>",res)
+      // await User.updateOne(
+      //   { _id: userId },
+      //   { $set: { "youtube.liveChatId": liveChatId } }
+      // );
     })
     .catch((err) => {
-      console.log(err.response.data.error.errors);
+      console.log(err?.response?.data?.error?.errors);
     });
 
   console.log("youtube going live");
