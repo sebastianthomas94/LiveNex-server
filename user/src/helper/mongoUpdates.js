@@ -49,8 +49,31 @@ const getGoogleProfilePicture = async (email) => {
   return url;
 };
 
+const saveFacebookCredentials = (data) => {
+  const {
+    facebook_rtmp,
+    facebook_liveVideoId,
+    facebook_accesstoken,
+    profilePicture,
+    email,
+  } = data;
+  User.findOneAndUpdate(
+    { email },
+    {
+      "facebook.accessToken": facebook_accesstoken,
+      "facebook.rtmpUrl": facebook_rtmp,
+      "facebook.liveVideoId": facebook_liveVideoId,
+      "facebook.profilePicture": profilePicture,
+    }
+  ).then((res)=>{
+    console.log("facebook credentials added to mongo");
+  })
+  .catch((e)=>console.log("error while updating fb credentials:", e.message));
+};
+
 export {
   saveGoogleCredentials,
   saveYoutubeCredential,
   getGoogleProfilePicture,
+  saveFacebookCredentials,
 };

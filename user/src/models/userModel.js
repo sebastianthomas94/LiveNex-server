@@ -19,6 +19,7 @@ const userSchema = mongoose.Schema({
         refreshTocken:String,
         rtmpUrl:String,
         photo: String,
+        liveChatId: String,
     }
     ,
     google:{
@@ -35,6 +36,13 @@ const userSchema = mongoose.Schema({
     twitch:{
         accessToken:String,
         refreshTocken:String,
+        rtmpUrl:String,
+        photo: String,
+    },
+    facebook:{
+        accessToken:String,
+        refreshTocken:String,
+        liveVideoId: String,
         rtmpUrl:String,
         photo: String,
     }

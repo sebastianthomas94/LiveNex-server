@@ -11,6 +11,7 @@ import {
   googleCallBack,
   youtubeAuth,
   youtubeOauthCallback,
+  replyComment
 } from "./services/main.js";
 import cookieParser from "cookie-parser";
 import passport from "passport";
@@ -60,6 +61,7 @@ app.get("/logout", (req, res) => {
   console.log("logged out");
   res.end();
 });
+app.post("/reply", replyComment);
 app.get("/auth/google", Oauth);
 app.get("/auth/google/callback", googleCallBack);
 app.get("/auth/youtubeauth", authAndSave, youtubeAuth);

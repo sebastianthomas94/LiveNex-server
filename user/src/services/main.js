@@ -17,7 +17,9 @@ import {
   saveYoutubeCredential,
   getGoogleProfilePicture,
 } from "../helper/mongoUpdates.js";
-import { get } from "http";
+import { access } from "fs";
+import { fbReply } from "../helper/fbHelper.js";
+import { ytReply } from "../helper/ytHelper.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,7 +51,6 @@ const youtube = google.youtube({
   version: "v3",
   auth: oauth2Client,
 });
-
 const saltRounds = 10;
 
 const signupService = (req, res) => {
@@ -171,7 +172,6 @@ const youtubeAuth = (req, res) => {
   const { title, description } = req.query;
   req.session.title = title;
   req.session.description = description;
-  console.log("session from youtubeAuth", req.session);
   try {
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "online",
@@ -194,6 +194,7 @@ const youtubeOauthCallback = async (req, res) => {
     //console.log("token", tokens);
     const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token;
+    console.log("access token:", accessToken);
     await oauth2Client.setCredentials(tokens);
     // res.status(200).json({response:"Authorization successful! You can now start streaming."});
     const { title, description } = req.session;
@@ -227,25 +228,31 @@ const youtubeOauthCallback = async (req, res) => {
     });
     console.log("broadcastId:", data.id);
     const broadcastId = data.id;
+    const token = req.cookies.jwt;
+    const { email } = jwt.verify(token, process.env.JWT_SECRET);
+    console.log("user Email from youtube callack:", email);
     const rtmp_url = await createYoutubeStreams(
       title,
       description,
       accessToken,
-      broadcastId
+      broadcastId,
+      email
     );
-    const token = req.cookies.jwt;
-    const { email } = jwt.verify(token, process.env.JWT_SECRET);
+
     saveYoutubeCredential(rtmp_url, accessToken, email);
     const user = {
       email,
       rtmp_url,
+      YT_accessToken: accessToken,
     };
+    const mongoUser = await User.findOne({ email: email });
     const profilePicture = await getGoogleProfilePicture(email);
     const jsonToken = jwt.sign(user, process.env.JWT_SECRET);
     const json = {
       profilePicture,
-      platform : "youtube",
-      youtube_rtmp: rtmp_url
+      platform: "youtube",
+      youtube_rtmp: rtmp_url,
+      YT_liveChatId: mongoUser.youtube.liveChatId,
     };
     res.cookie("jwt", jsonToken).send(`
         <script>
@@ -261,6 +268,15 @@ const youtubeOauthCallback = async (req, res) => {
   }
 };
 
+const replyComment = (req, res) => {
+  const token = req.cookies.jwt;
+  const { email } = jwt.verify(token, process.env.JWT_SECRET);
+  const { comment } = req.body;
+  console.log("reply:", comment);
+  fbReply(comment, email);
+  ytReply(comment, email);
+};
+
 export {
   signupService,
   signinService,
@@ -268,4 +284,5 @@ export {
   googleCallBack,
   youtubeAuth,
   youtubeOauthCallback,
+  replyComment,
 };

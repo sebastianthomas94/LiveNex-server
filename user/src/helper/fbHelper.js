@@ -2,70 +2,84 @@ import path from "path";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import axios from "axios";
+import User from "../models/userModel.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../../.env") });
 
-const accessTokenFB =async (authorizationCode) => {
-    try {
-   
-  
-      const response = await axios.post(
-        `https://graph.facebook.com/v12.0/oauth/access_token`,
-        null,
-        {
-          params: {
-            client_id: process.env.FB_CLIENT_ID,
-            redirect_uri: process.env.FACEBOOK_AUTH_REDIRECT_URL,
-            client_secret: process.env.FB_SECRET_KEY,
-            code: authorizationCode,
-          },
-        }
-      );
+const accessTokenFB = async (authorizationCode) => {
+  try {
+    const response = await axios.post(
+      `https://graph.facebook.com/v12.0/oauth/access_token`,
+      null,
+      {
+        params: {
+          client_id: process.env.FB_CLIENT_ID,
+          redirect_uri: process.env.FACEBOOK_AUTH_REDIRECT_URL,
+          client_secret: process.env.FB_SECRET_KEY,
+          code: authorizationCode,
+        },
+      }
+    );
 
-      
-        return response;
+    return response;
+  } catch (err) {
+    console.error(err);
+  }
+};
 
-    } catch (err) {
-      console.error(err);
-    }
+const getUserIdFB = async (accessTokenFB) => {
+  try {
+    const res = await axios.get(
+      `https://graph.facebook.com/v12.0/me?fields=id,picture&access_token=${accessTokenFB}`
+    );
+    console.log("user id response: ", res.data.picture);
+    return { userId: res.data.id, profilePicture: res.data.picture };
+  } catch (error) {
+    console.error("Error fetching user data:", error.response.data);
+  }
+};
+
+const getRtmpUrlFB = async (userId, accessToken, req) => {
+  const postData = {
+    status: "LIVE_NOW",
+    title: req.session.title,
+    description: req.session.description,
   };
 
-  const getUserIdFB = async (accessTokenFB) => {
-    try {
-      const res = await axios.get(
-        `https://graph.facebook.com/v12.0/me?fields=id&access_token=${accessTokenFB}`
-      );
-      return res.data.id;
-    } catch (error) {
-      console.error("Error fetching user data:", error.response.data);
-    }
-  };
+  try {
+    const response = await axios.post(
+      `https://graph.facebook.com/${userId}/live_videos`,
+      null,
+      {
+        params: postData,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+    console.log("rtmp url:", response.data.stream_url);
+    return { rtmpUrl: response.data.stream_url, liveVideoId: response.data.id };
+  } catch (error) {
+    console.error("Error posting live video:", error);
+  }
+};
 
-  const getRtmpUrlFB = async (userId, accessToken, req) => {
-    const postData = {
-      status: "LIVE_NOW",
-      title: req.session.title,
-      description: req.session.description,
-    };
-  
-    try {
-      const response = await axios.post(
-        `https://graph.facebook.com/${userId}/live_videos`,
-        null,
-        {
-          params: postData,
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      console.log("rtmp url:",response.data.stream_url);
-        return response.data.stream_url;
-      
-    } catch (error) {
-      console.error("Error posting live video:", error);
-    }
-  };
+const fbReply = async (comment, email) => {
+  const result = await User.findOne({ email });
+  const accessToken = result.facebook.accessToken;
+  const liveVideoId = result.facebook.liveVideoId;
+  console.log(accessToken,liveVideoId, comment)
+  const url = `https://graph.facebook.com/v18.0/${liveVideoId}/comments?access_token=${accessToken}`;
+  const message ={
+    message: comment,
+  }
+  axios.post(url, message)
+  .then((res)=>{
+    console.log("reply in fb successfuly added:", res);
+  }).catch((e)=>{
+    console.log("error at posting fb reply:", e.response.data)
+  });
+};
 
-  export {accessTokenFB,getRtmpUrlFB,getUserIdFB}
+export { accessTokenFB, getRtmpUrlFB, getUserIdFB, fbReply };

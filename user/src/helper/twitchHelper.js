@@ -1,4 +1,5 @@
 import axios from "axios";
+// import tmi from "tmi.js";
 
 const getAccessToken = async (code) => {
   try {
@@ -26,7 +27,10 @@ const getUserId = async (accessToken) => {
     });
     const userData = response.data.data[0];
     const user_id = userData.id;
-    return user_id;
+    const userName = userData.login;
+    const profilePicture = userData.profile_image_url;
+    //console.log("user data twitch:", userData);
+    return { user_id, profilePicture, userName };
   } catch (err) {
     console.log("error from getUserId:", err.message);
   }
@@ -51,6 +55,7 @@ const getStreamKey = async (accessToken, user_id) => {
     if (response.status === 200) {
       const streamKey = response.data.data[0].stream_key;
       console.log("Stream key:", streamKey);
+      console.log("responst from fetching twitch stream key: ", response.data);
       return streamKey;
     } else {
       console.error("Failed to retrieve stream key:", response.data);
@@ -59,4 +64,5 @@ const getStreamKey = async (accessToken, user_id) => {
     console.log("error from getStreamKey:", err.message);
   }
 };
+
 export { getAccessToken, getUserId, getStreamKey };
