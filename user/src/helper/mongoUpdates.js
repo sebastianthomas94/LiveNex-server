@@ -71,9 +71,20 @@ const saveFacebookCredentials = (data) => {
   .catch((e)=>console.log("error while updating fb credentials:", e.message));
 };
 
+
+const checkIfSubscribed = async(req, res)=>{
+  const email = req.userEmail;
+  const result = await User.findOne({email});
+  if(result.razorpayDetails?.endDate && new Date(result.razorpayDetails?.endDate)>  new Date()){
+    res.status(200).json({data :  true});
+  }
+  else
+    res.status(200).json({data :  false});
+};
 export {
   saveGoogleCredentials,
   saveYoutubeCredential,
   getGoogleProfilePicture,
   saveFacebookCredentials,
+  checkIfSubscribed,
 };

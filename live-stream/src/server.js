@@ -20,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
+
 const app = express();
 
 const io = new Server(8200, {
@@ -30,11 +31,12 @@ const io = new Server(8200, {
 
 io.on("connection", (socket) => {
   let counter = 0;
-  let lastTime = new Date(), nowTime;
+  let lastTime = new Date(),
+    nowTime;
   const sentComments = new Set();
   function filterNewComments(newComments) {
     const unsentComments = [];
-  
+
     // Check each comment to see if it's new
     newComments.forEach((comment) => {
       if (!sentComments.has(comment.id)) {
@@ -42,7 +44,7 @@ io.on("connection", (socket) => {
         sentComments.add(comment.id);
       }
     });
-  
+
     return unsentComments;
   }
   // console.log("cookies from socket",socket.handshake.headers.cookie);
@@ -61,41 +63,77 @@ io.on("connection", (socket) => {
   const YT_liveChatId = socket.handshake.query.YT_liveChatId;
   const facebook_liveVideoId = socket.handshake.query.facebook_liveVideoId;
   const facebook_accesstoken = socket.handshake.query.facebook_accesstoken;
+  const broadcast = socket.handshake.query.broadcast;
+  const fileName = socket.handshake.query.fileName;
 
-  const ffmpegInput = inputSettings.concat(
-    youtube_rtmp && youtubeSettings(youtube_rtmp),
-    facebook_rtmp && facebookSettings(facebook_rtmp),
-    twitch_rtmp && customRtmpSettings(twitch_rtmp),
-  );
-  const ffmpeg = spawn("ffmpeg", ffmpegInput);
-  ffmpeg.on("start", (command) => {
-    console.log("FFmpeg command:", command);
-  });
+  const videoFilePath = path.join("/home/sebastian/Desktop/Brototype/Week 23/LiveNex-rollback/LiveNex-server/api-gateway/public/videos", fileName);
 
-  ffmpeg.on("close", (code, signal) => {
-    console.log(
-      "FFmpeg child process closed, code " + code + ", signal " + signal
+  let ffmpegInput, ffmpeg;
+  let facebookCommand, twitchCommand, youtubeCommand;
+  if (!broadcast)
+    ffmpegInput = inputSettings.concat(
+      youtube_rtmp && youtubeSettings(youtube_rtmp),
+      facebook_rtmp && facebookSettings(facebook_rtmp),
+      twitch_rtmp && customRtmpSettings(twitch_rtmp)
     );
-  });
+  else {
+    facebookCommand = [].concat(
+      ["-re", "-i", videoFilePath],
+      facebook_rtmp && facebookSettings(facebook_rtmp)
+    );
+    twitchCommand = [].concat(
+      ["-re", "-i", videoFilePath],
+      twitch_rtmp && customRtmpSettings(twitch_rtmp)
+    );
+    youtubeCommand = [].concat(
+      ["-re", "-i", videoFilePath],
+      youtube_rtmp && youtubeSettings(youtube_rtmp)
+    );
 
-  ffmpeg.stdin.on("error", (e) => {
-    console.log("FFmpeg STDIN Error", e);
-  });
+  }
+  try {
+    if (!broadcast) ffmpeg = spawn("ffmpeg", ffmpegInput);
+    else {
+      const startStreaming = (command) => {
+        ffmpeg = spawn("ffmpeg", command);
+      };
+      youtube_rtmp && startStreaming(youtubeCommand);
+      facebook_rtmp && startStreaming(facebookCommand);
+      twitch_rtmp && startStreaming(twitchCommand);
+      console.log("broadcasting the stream: ");
+    }
 
-  ffmpeg.stderr.on("data", (data) => {
-    console.log("FFmpeg STDERR:", data.toString());
-  });
-  socket.on("message", (msg) => {
-    //console.log("frames ",msg);
-    ffmpeg.stdin.write(msg);
-  });
-  socket.conn.on("close", (e) => {
-    console.log("kill: SIGINT");
-    ffmpeg.kill("SIGINT");
-  });
+    ffmpeg.on("start", (command) => {
+      console.log("FFmpeg command:", command);
+    });
 
-  socket.on("reply",(data)=>{
-    console.log("reply from user:",data);
+    ffmpeg.on("close", (code, signal) => {
+      console.log(
+        "FFmpeg child process closed, code " + code + ", signal " + signal
+      );
+    });
+
+    ffmpeg.stdin.on("error", (e) => {
+      console.log("FFmpeg STDIN Error", e);
+    });
+
+    ffmpeg.stderr.on("data", (data) => {
+      console.log("FFmpeg STDERR:", data.toString());
+    });
+    socket.on("message", (msg) => {
+      //console.log("frames ",msg);
+      ffmpeg.stdin.write(msg);
+    });
+    socket.conn.on("close", (e) => {
+      console.log("kill: SIGINT");
+      ffmpeg.kill("SIGINT");
+    });
+  } catch (error) {
+    console.error("Error starting FFmpeg:", error);
+  }
+
+  socket.on("reply", (data) => {
+    console.log("reply from user:", data);
   });
 
   socket.on("requestingComments", async (data) => {
@@ -155,5 +193,3 @@ io.on("connection", (socket) => {
     }
   });
 });
-
-

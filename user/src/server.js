@@ -25,10 +25,15 @@ import {
   twitchAuth,
   twitchOauthCallback,
 } from "./services/twitchEndpoints.js";
+import { uploadtos3 } from "./services/broadcast.js";
+import { checkIfSubscribed } from "./helper/mongoUpdates.js";
+import { razorpay, razorpaySuccess } from "./services/razorpay.js";
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../.env") });
+
 
 mongoose
   .connect(process.env.MONGO_URL)
@@ -55,6 +60,21 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 app.use(express.json());
+
+
+// app.use((req, res, next) => {
+//   let data = '';
+//   console.log("header: ", req.headers);
+//   req.on('data', (chunk) => {
+//     data += chunk.toString();
+//   });
+
+//   req.on('end', () => {
+//     console.log('FormData received at the API Gateway:', data);
+//     next();
+//   });
+// });
+
 app.post("/signin", signinService);
 app.post("/signup", signupService);
 app.get("/logout", (req, res) => {
@@ -70,6 +90,10 @@ app.get("/auth/fbauuth", authAndSave, facebookAuth);
 app.get("/auth/facebook-oauth-callback", facebookOauthCallback);
 app.get("/auth/twitchauth", authAndSave, twitchAuth);
 app.get("/auth/twitch-oauth-callback", twitchOauthCallback);
+// app.post("/uploadvideo", upload.single('file'), uploadtos3);
+app.get("/issubscribed", authAndSave, checkIfSubscribed)
+app.get("/razor/orders",authAndSave, razorpay);
+app.post("/razor/success", authAndSave, razorpaySuccess)
 
 app.listen(process.env.PORT, () =>
   console.log(`User server started at ${process.env.PORT}`)
