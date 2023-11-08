@@ -277,6 +277,41 @@ const replyComment = (req, res) => {
   ytReply(comment, email);
 };
 
+const createTicket = (req, res) => {
+  const { subject, description } = req.query;
+  const date = new Date().toLocaleDateString("en-US", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+  const ticket = {
+    subject,
+    description,
+    status: false,
+    date ,
+  };
+  User.findOneAndUpdate(
+    { email: req.userEmail },
+    { $push: { tickets: ticket } },
+    { new: true }
+  )
+    .then((result) => {
+      res.status(200).json({ data: "success" });
+    })
+    .catch((e) => {
+      console.log("error at creating ticket: ", e.message);
+    });
+};
+
+const gettickets = (req, res) => {
+  const email = req.userEmail;
+  User.findOne({ email })
+    .then((result) => {
+      res.status(200).json(result.tickets);
+    })
+    .catch((e) => console.log("error from getting tickets: ", e.message));
+};
+
 export {
   signupService,
   signinService,
@@ -285,4 +320,6 @@ export {
   youtubeAuth,
   youtubeOauthCallback,
   replyComment,
+  createTicket,
+  gettickets,
 };

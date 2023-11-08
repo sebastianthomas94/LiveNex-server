@@ -56,17 +56,19 @@ const userSchema = mongoose.Schema(
     },
     tickets: [
       {
-        email: String,
         subject: String,
         description: String,
         status: Boolean,
+        reply:String,
+        date:String,
       },
     ],
     streams: [
       {
         title: String,
-        startTime: Date,
+        startTime: String,
         destinations: Array,
+        broadcast:Boolean,
       },
     ],
   },

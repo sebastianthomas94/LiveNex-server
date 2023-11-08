@@ -11,7 +11,9 @@ import {
   googleCallBack,
   youtubeAuth,
   youtubeOauthCallback,
-  replyComment
+  replyComment,
+  createTicket,
+  gettickets
 } from "./services/main.js";
 import cookieParser from "cookie-parser";
 import passport from "passport";
@@ -28,6 +30,7 @@ import {
 import { uploadtos3 } from "./services/broadcast.js";
 import { checkIfSubscribed } from "./helper/mongoUpdates.js";
 import { razorpay, razorpaySuccess } from "./services/razorpay.js";
+import { adminLogin, deleteUser, getPastLives, getUsers, setLiveData } from "./services/admin.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -94,6 +97,15 @@ app.get("/auth/twitch-oauth-callback", twitchOauthCallback);
 app.get("/issubscribed", authAndSave, checkIfSubscribed)
 app.get("/razor/orders",authAndSave, razorpay);
 app.post("/razor/success", authAndSave, razorpaySuccess)
+app.post("/admin/login", adminLogin);
+app.get("/admin/getusers", getUsers);
+app.post("/setlivedata", authAndSave,setLiveData);
+app.get("/getpastlives",authAndSave, getPastLives);
+app.get("/admin/deleteuser", deleteUser);
+app.get("/createticket", authAndSave,createTicket);
+app.get("/gettickets", authAndSave,gettickets);
+
+
 
 app.listen(process.env.PORT, () =>
   console.log(`User server started at ${process.env.PORT}`)

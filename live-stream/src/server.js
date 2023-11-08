@@ -66,7 +66,7 @@ io.on("connection", (socket) => {
   const broadcast = socket.handshake.query.broadcast;
   const fileName = socket.handshake.query.fileName;
 
-  const videoFilePath = path.join("/home/sebastian/Desktop/Brototype/Week 23/LiveNex-rollback/LiveNex-server/api-gateway/public/videos", fileName);
+  const videoFilePath = "/home/sebastian/Desktop/Brototype/Week 23/LiveNex-rollback/LiveNex-server/api-gateway/public/videos/"+ fileName;
 
   let ffmpegInput, ffmpeg;
   let facebookCommand, twitchCommand, youtubeCommand;
