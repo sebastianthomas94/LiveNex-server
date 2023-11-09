@@ -30,7 +30,7 @@ import {
 import { uploadtos3 } from "./services/broadcast.js";
 import { checkIfSubscribed } from "./helper/mongoUpdates.js";
 import { razorpay, razorpaySuccess } from "./services/razorpay.js";
-import { adminLogin, deleteUser, getPastLives, getUsers, setLiveData } from "./services/admin.js";
+import { adminLogin, deleteUser, getAllTickets, getPastLives, getUsers, saveTicketReply, setLiveData } from "./services/admin.js";
 
 
 const __filename = fileURLToPath(import.meta.url);
@@ -104,6 +104,8 @@ app.get("/getpastlives",authAndSave, getPastLives);
 app.get("/admin/deleteuser", deleteUser);
 app.get("/createticket", authAndSave,createTicket);
 app.get("/gettickets", authAndSave,gettickets);
+app.get("/admin/getalltickets",getAllTickets);
+app.post("/admin/sentticketreply",saveTicketReply);
 
 
 
