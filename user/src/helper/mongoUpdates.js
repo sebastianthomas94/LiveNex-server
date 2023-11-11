@@ -28,12 +28,13 @@ const saveGoogleCredentials = (accessToken, refreshToken, profile) => {
     });
 };
 
-const saveYoutubeCredential = (rtmp, accessToken, email) => {
+const saveYoutubeCredential = (rtmp, accessToken, email, broadcastId) => {
   User.findOneAndUpdate(
     { email: email },
     {
-      "youtube.accessToken": accessToken,
+     "youtube.accessToken": accessToken,
       "youtube.rtmpUrl": rtmp,
+      "youtube.broadcastId": broadcastId,
     },
     { upsert: false, new: true }
   )
@@ -56,17 +57,22 @@ const saveFacebookCredentials = (data) => {
     facebook_accesstoken,
     profilePicture,
     email,
+    facebookLiveUrl,
   } = data;
+  console.log("data to be updated at facebook: ",data)
   User.findOneAndUpdate(
     { email },
     {
-      "facebook.accessToken": facebook_accesstoken,
-      "facebook.rtmpUrl": facebook_rtmp,
-      "facebook.liveVideoId": facebook_liveVideoId,
-      "facebook.profilePicture": profilePicture,
+      $set:{
+        "facebook.accessToken": facebook_accesstoken,
+        "facebook.rtmpUrl": facebook_rtmp,
+        "facebook.liveVideoId": facebook_liveVideoId,
+        "facebook.profilePicture": profilePicture,
+        "facebook.liveVideoUrl": facebookLiveUrl,
+      }
     }
   ).then((res)=>{
-    console.log("facebook credentials added to mongo");
+    console.log("facebook credentials added to mongo: ", res);
   })
   .catch((e)=>console.log("error while updating fb credentials:", e.message));
 };

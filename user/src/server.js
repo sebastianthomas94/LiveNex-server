@@ -13,7 +13,8 @@ import {
   youtubeOauthCallback,
   replyComment,
   createTicket,
-  gettickets
+  gettickets,
+  getSubscriptionDetails
 } from "./services/main.js";
 import cookieParser from "cookie-parser";
 import passport from "passport";
@@ -106,6 +107,7 @@ app.get("/createticket", authAndSave,createTicket);
 app.get("/gettickets", authAndSave,gettickets);
 app.get("/admin/getalltickets",getAllTickets);
 app.post("/admin/sentticketreply",saveTicketReply);
+app.get("/getSubscriptionDetails",authAndSave,getSubscriptionDetails);
 
 
 

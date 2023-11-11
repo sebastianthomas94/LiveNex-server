@@ -230,7 +230,6 @@ const youtubeOauthCallback = async (req, res) => {
     const broadcastId = data.id;
     const token = req.cookies.jwt;
     const { email } = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("user Email from youtube callack:", email);
     const rtmp_url = await createYoutubeStreams(
       title,
       description,
@@ -244,15 +243,18 @@ const youtubeOauthCallback = async (req, res) => {
       email,
       rtmp_url,
       YT_accessToken: accessToken,
+      broadcastId,
     };
     const mongoUser = await User.findOne({ email: email });
     const profilePicture = await getGoogleProfilePicture(email);
     const jsonToken = jwt.sign(user, process.env.JWT_SECRET);
+    const youtubeLiveUrl = "https://www.youtube.com/watch?v="+ broadcastId;
     const json = {
       profilePicture,
       platform: "youtube",
       youtube_rtmp: rtmp_url,
       YT_liveChatId: mongoUser.youtube.liveChatId,
+      youtubeLiveUrl
     };
     res.cookie("jwt", jsonToken).send(`
         <script>
@@ -288,7 +290,7 @@ const createTicket = (req, res) => {
     subject,
     description,
     status: false,
-    date ,
+    date,
   };
   User.findOneAndUpdate(
     { email: req.userEmail },
@@ -312,6 +314,16 @@ const gettickets = (req, res) => {
     .catch((e) => console.log("error from getting tickets: ", e.message));
 };
 
+const getSubscriptionDetails = (req, res) => {
+  const email = req.userEmail;
+  User.findOne({ email })
+    .then((result) => {
+      // console.log(result.razorpayDetails);
+      res.status(200).json(result.razorpayDetails)
+    })
+    .catch((e) => console.log("error at getSubscriptionDetails: ", e.message));
+};
+
 export {
   signupService,
   signinService,
@@ -322,4 +334,5 @@ export {
   replyComment,
   createTicket,
   gettickets,
+  getSubscriptionDetails,
 };

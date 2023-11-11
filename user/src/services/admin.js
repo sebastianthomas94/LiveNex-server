@@ -16,8 +16,32 @@ const getUsers = (req, res) => {
 
 const setLiveData = (req, res) => {
   const email = req.userEmail;
-  console.log(email, req.body);
-  User.updateOne({ email }, { $push: { streams: req.body } })
+  const {
+    title,
+    startTime,
+    destinations,
+    broadcast,
+    youtubeLiveUrl,
+    facebookLiveUrl,
+  } = req.body;
+  const isFacebookPresent = destinations.includes("facebook");
+  const isYoutubePresent = destinations.includes("youtube");
+
+  User.updateOne(
+    { email },
+    {
+      $push: {
+        streams: {
+          title,
+          startTime,
+          destinations,
+          broadcast,
+          ...(youtubeLiveUrl && { youtubeLiveUrl }),
+          ...(facebookLiveUrl && { facebookLiveUrl }),
+        },
+      },
+    }
+  )
     .then((result) => console.log("past lives data added", result))
     .catch((e) => console.log(e));
 };

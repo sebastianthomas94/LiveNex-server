@@ -21,6 +21,7 @@ const userSchema = mongoose.Schema(
       rtmpUrl: String,
       photo: String,
       liveChatId: String,
+      broadcastId: String,
     },
     google: {
       accessToken: String,
@@ -45,6 +46,7 @@ const userSchema = mongoose.Schema(
       liveVideoId: String,
       rtmpUrl: String,
       photo: String,
+      liveVideoUrl: String,
     },
     razorpayDetails: {
       orderId: String,
@@ -53,14 +55,15 @@ const userSchema = mongoose.Schema(
       success: Boolean,
       startDate: Date,
       endDate: Date,
+      plan: String,
     },
     tickets: [
       {
         subject: String,
         description: String,
         status: Boolean,
-        reply:String,
-        date:String,
+        reply: String,
+        date: String,
       },
     ],
     streams: [
@@ -68,7 +71,8 @@ const userSchema = mongoose.Schema(
         title: String,
         startTime: String,
         destinations: Array,
-        broadcast:Boolean,
+        broadcast: Boolean,
+        youtubeLiveUrl:String,
       },
     ],
   },

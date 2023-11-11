@@ -33,7 +33,7 @@ async function createYoutubeStreams(
     //console.log("creating live stream-------- respose:", res);
     const { ingestionAddress, streamName } = res.data.cdn.ingestionInfo;
     const streamId = res.data.id;
-    // console.log("streamId:", streamId);
+    console.log("streamId:", streamId);
 
 
     const youtubeRTMURL = ingestionAddress + "/" + streamName;
@@ -87,7 +87,7 @@ async function bindYoutubeBroadcastToStream(
       { upsert: true, new: true }
     )
       .then((res) => {
-        console.log("live chat id has been updated:", res);
+        console.log("live chat id has been updated:", liveChatId);
       })
       .catch((e) => {
         console.log(e.message);

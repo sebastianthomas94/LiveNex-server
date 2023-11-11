@@ -7,14 +7,9 @@ const razorpay = async (req, res) => {
       key_id: process.env.RAZARPAY_KEY_ID,
       key_secret: process.env.RAZARPAY_KEY_SECRET,
     });
-    const {plan} = req.query;
-    let amount;
-    if(plan=="Pro Plan")
-        amount = 599.99;
-    if(plan =="Basic Plan")
-        amount = 399.99;
+    const {plan, cost} = req.query;
     const options = {
-      amount: amount * 100,
+      amount: cost * 100,
       currency: "INR",
       receipt: "receipt_order_74394",
     };
@@ -39,6 +34,7 @@ const razorpaySuccess = async(req, res) => {
       razorpayOrderId,
       razorpaySignature,
       email,
+      plan
     } = req.body;
     const startDate = Date.now();
     const endDate = new Date(startDate);
@@ -50,6 +46,7 @@ const razorpaySuccess = async(req, res) => {
       signature: razorpaySignature,
       success: true,
       startDate: Date.now(),
+      plan,
     };
 
     try {

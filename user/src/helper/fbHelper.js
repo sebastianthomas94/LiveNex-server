@@ -31,8 +31,9 @@ const accessTokenFB = async (authorizationCode) => {
 const getUserIdFB = async (accessTokenFB) => {
   try {
     const res = await axios.get(
-      `https://graph.facebook.com/v12.0/me?fields=id,picture&access_token=${accessTokenFB}`
+      `https://graph.facebook.com/v13.0/me?fields=id,picture&access_token=${accessTokenFB}`
     );
+    console.log("response from get user id fb: ", res.data);
     console.log("user id response: ", res.data.picture);
     return { userId: res.data.id, profilePicture: res.data.picture };
   } catch (error) {
@@ -59,6 +60,7 @@ const getRtmpUrlFB = async (userId, accessToken, req) => {
       }
     );
     console.log("rtmp url:", response.data.stream_url);
+    console.log("response: ", response.data);
     return { rtmpUrl: response.data.stream_url, liveVideoId: response.data.id };
   } catch (error) {
     console.error("Error posting live video:", error);
@@ -69,17 +71,47 @@ const fbReply = async (comment, email) => {
   const result = await User.findOne({ email });
   const accessToken = result.facebook.accessToken;
   const liveVideoId = result.facebook.liveVideoId;
-  console.log(accessToken,liveVideoId, comment)
+  console.log(accessToken, liveVideoId, comment);
   const url = `https://graph.facebook.com/v18.0/${liveVideoId}/comments?access_token=${accessToken}`;
-  const message ={
+  const message = {
     message: comment,
-  }
-  axios.post(url, message)
-  .then((res)=>{
-    console.log("reply in fb successfuly added:", res);
-  }).catch((e)=>{
-    console.log("error at posting fb reply:", e.response.data)
-  });
+  };
+  axios
+    .post(url, message)
+    .then((res) => {
+      console.log("reply in fb successfuly added:", res);
+    })
+    .catch((e) => {
+      console.log("error at posting fb reply:", e.response.data);
+    });
 };
 
-export { accessTokenFB, getRtmpUrlFB, getUserIdFB, fbReply };
+const getLiveVideoUrl = async (liveVideoId, accessToken) => {
+  try {
+    const response = await axios.get(
+      `https://graph.facebook.com/v13.0/${liveVideoId}`,
+      {
+        params: {
+          access_token: accessToken,
+          fields: "id,title,video",
+        },
+      }
+    );
+    // Check if the live video is live
+    console.log("live url data response: ", response.data);
+    if (response.data?.video && response.data?.video?.id) {
+      const streamUrlID = response.data?.video?.id;
+      console.log("Live Video Stream URL id:", streamUrlID);
+      return streamUrlID;
+    } else {
+      console.log("The specified video is not currently live.");
+    }
+  } catch (error) {
+    console.error(
+      "Error fetching live video details:",
+      error?.response?.data ? error?.response?.data : error.message
+    );
+  }
+};
+
+export { accessTokenFB, getRtmpUrlFB, getUserIdFB, fbReply, getLiveVideoUrl };

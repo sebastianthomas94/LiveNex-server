@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken";
 
 import {
   accessTokenFB,
+  getLiveVideoUrl,
   getRtmpUrlFB,
   getUserIdFB,
 } from "../helper/fbHelper.js";
@@ -49,25 +50,34 @@ const facebookOauthCallback = async (req, res) => {
     );
     console.log("rtmpUrl:----", rtmpUrl);
     console.log("live video id:", liveVideoId);
+
     const rtmp = {
       facebook_rtmp: rtmpUrl,
       facebook_liveVideoId: liveVideoId,
       facebook_accesstoken,
       profilePicture: dpURL,
     };
-    saveFacebookCredentials({
-      facebook_rtmp: rtmpUrl,
-      facebook_liveVideoId: liveVideoId,
-      facebook_accesstoken,
-      profilePicture: dpURL,
-      email
-    });
     res.send(`
   <script>
     window.opener.postMessage(${JSON.stringify(rtmp)},'http://localhost:3000/');
     window.close();
   </script>
 `);
+    setTimeout(async () => {
+      const liveVideoUrl = await getLiveVideoUrl(
+        liveVideoId,
+        facebook_accesstoken
+      );
+      const facebookLiveUrl = `https://www.facebook.com/${userId}/videos/${liveVideoUrl}`;
+      saveFacebookCredentials({
+        facebook_rtmp: rtmpUrl,
+        facebook_liveVideoId: liveVideoId,
+        facebook_accesstoken,
+        profilePicture: dpURL,
+        email,
+        facebookLiveUrl,
+      });
+    }, 60000);
   } catch (err) {
     // if (err.response) {
     //   console.error("Response Error:", err.response.data);
