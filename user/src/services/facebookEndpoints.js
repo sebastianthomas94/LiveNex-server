@@ -9,16 +9,17 @@ import {
   getRtmpUrlFB,
   getUserIdFB,
 } from "../helper/fbHelper.js";
-import { saveFacebookCredentials } from "../helper/mongoUpdates.js";
+import { saveFacebookCredentials, saveFacebookUrl } from "../helper/mongoUpdates.js";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../../.env") });
 
 const facebookAuth = (req, res) => {
   try {
-    const { title, description } = req.query;
+    const { title, description, selectedDateTime } = req.query;
     req.session.title = title;
     req.session.description = description;
+    req.session.selectedDateTime = selectedDateTime;
     const authUrl = `https://www.facebook.com/v12.0/dialog/oauth?client_id=${process.env.FB_CLIENT_ID}&redirect_uri=${process.env.FACEBOOK_AUTH_REDIRECT_URL}&scope=publish_video,read_insights`;
     res.redirect(authUrl);
   } catch (err) {
@@ -41,8 +42,8 @@ const facebookOauthCallback = async (req, res) => {
     const facebook_accesstoken = response.data.access_token;
     const { userId, profilePicture } = await getUserIdFB(facebook_accesstoken);
     console.log("userId:----", userId);
-    console.log("profilePicture: ", profilePicture.data.url);
     const dpURL = `https://graph.facebook.com/v13.0/${userId}/picture?width=1000&height=1000`;
+    console.log("facebook accessTokon: ", response.data.access_token);
     const { rtmpUrl, liveVideoId } = await getRtmpUrlFB(
       userId,
       response.data.access_token,
@@ -56,6 +57,7 @@ const facebookOauthCallback = async (req, res) => {
       facebook_liveVideoId: liveVideoId,
       facebook_accesstoken,
       profilePicture: dpURL,
+      facebook_userId : userId,
     };
     res.send(`
   <script>
@@ -69,7 +71,8 @@ const facebookOauthCallback = async (req, res) => {
         facebook_accesstoken
       );
       const facebookLiveUrl = `https://www.facebook.com/${userId}/videos/${liveVideoUrl}`;
-      saveFacebookCredentials({
+      console.log("facebook live url: ", facebookLiveUrl);
+      await saveFacebookCredentials({
         facebook_rtmp: rtmpUrl,
         facebook_liveVideoId: liveVideoId,
         facebook_accesstoken,
@@ -77,6 +80,7 @@ const facebookOauthCallback = async (req, res) => {
         email,
         facebookLiveUrl,
       });
+      //await saveFacebookUrl(facebookLiveUrl,email);
     }, 60000);
   } catch (err) {
     // if (err.response) {

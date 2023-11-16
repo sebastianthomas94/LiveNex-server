@@ -32,7 +32,7 @@ const saveYoutubeCredential = (rtmp, accessToken, email, broadcastId) => {
   User.findOneAndUpdate(
     { email: email },
     {
-     "youtube.accessToken": accessToken,
+      "youtube.accessToken": accessToken,
       "youtube.rtmpUrl": rtmp,
       "youtube.broadcastId": broadcastId,
     },
@@ -59,33 +59,51 @@ const saveFacebookCredentials = (data) => {
     email,
     facebookLiveUrl,
   } = data;
-  console.log("data to be updated at facebook: ",data)
+  console.log("data to be updated at facebook: ", data);
   User.findOneAndUpdate(
     { email },
     {
-      $set:{
+      $set: {
         "facebook.accessToken": facebook_accesstoken,
         "facebook.rtmpUrl": facebook_rtmp,
         "facebook.liveVideoId": facebook_liveVideoId,
         "facebook.profilePicture": profilePicture,
         "facebook.liveVideoUrl": facebookLiveUrl,
-      }
+      },
     }
-  ).then((res)=>{
-    console.log("facebook credentials added to mongo: ", res);
-  })
-  .catch((e)=>console.log("error while updating fb credentials:", e.message));
+  )
+    .then((res) => {
+      console.log("facebook credentials added to mongo: ", res);
+    })
+    .catch((e) =>
+      console.log("error while updating fb credentials:", e.message)
+    );
 };
 
-
-const checkIfSubscribed = async(req, res)=>{
+const checkIfSubscribed = async (req, res) => {
   const email = req.userEmail;
-  const result = await User.findOne({email});
-  if(result.razorpayDetails?.endDate && new Date(result.razorpayDetails?.endDate)>  new Date()){
-    res.status(200).json({data :  true});
-  }
-  else
-    res.status(200).json({data :  false});
+  const result = await User.findOne({ email });
+  if (
+    result.razorpayDetails?.endDate &&
+    new Date(result.razorpayDetails?.endDate) > new Date()
+  ) {
+    res.status(200).json({ data: true });
+  } else res.status(200).json({ data: false });
+};
+
+const saveFacebookUrl = (url, email) => {
+  User.findOne({ email })
+    .then((result) => {
+      console.log("======", result)
+      const stream = result.streams[result.streams.length-1]
+      const newStream = {...stream, facebookLiveUrl:url}
+
+      console.log("newStream :" , newStream);
+      return User.updateOne({ email }, { $push: { streams: newStream } });
+    })
+    .catch((e) => {
+      console.log("error at upadating fb url:", e.message);
+    });
 };
 export {
   saveGoogleCredentials,
@@ -93,4 +111,5 @@ export {
   getGoogleProfilePicture,
   saveFacebookCredentials,
   checkIfSubscribed,
+  saveFacebookUrl,
 };

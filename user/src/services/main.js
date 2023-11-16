@@ -169,9 +169,11 @@ const youtubeAuth = (req, res) => {
   //console.log("browser cookies:",req.cookies.user);
   //console.log("token test", token);
   console.log("title query", req.query);
-  const { title, description } = req.query;
+  const { title, description, selectedDateTime } = req.query;
   req.session.title = title;
   req.session.description = description;
+
+  req.session.selectedDateTime = selectedDateTime;
   try {
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "online",
@@ -197,12 +199,18 @@ const youtubeOauthCallback = async (req, res) => {
     console.log("access token:", accessToken);
     await oauth2Client.setCredentials(tokens);
     // res.status(200).json({response:"Authorization successful! You can now start streaming."});
-    const { title, description } = req.session;
+    const { title, description, selectedDateTime } = req.session;
+    let dateAndTime;
+    if (selectedDateTime) {
+      dateAndTime = selectedDateTime;
+      console.log("schedulling youtube live for: ", dateAndTime);
+    } else dateAndTime = new Date().toISOString();
+
     const broadcastRequest = {
       snippet: {
         title,
         description,
-        scheduledStartTime: `${new Date().toISOString()}`,
+        scheduledStartTime: `${dateAndTime}`,
       },
       contentDetails: {
         recordFromStart: true,
@@ -248,13 +256,14 @@ const youtubeOauthCallback = async (req, res) => {
     const mongoUser = await User.findOne({ email: email });
     const profilePicture = await getGoogleProfilePicture(email);
     const jsonToken = jwt.sign(user, process.env.JWT_SECRET);
-    const youtubeLiveUrl = "https://www.youtube.com/watch?v="+ broadcastId;
+    const youtubeLiveUrl = "https://www.youtube.com/watch?v=" + broadcastId;
     const json = {
       profilePicture,
       platform: "youtube",
       youtube_rtmp: rtmp_url,
       YT_liveChatId: mongoUser.youtube.liveChatId,
-      youtubeLiveUrl
+      youtubeLiveUrl,
+      selectedDateTime,
     };
     res.cookie("jwt", jsonToken).send(`
         <script>
@@ -319,10 +328,36 @@ const getSubscriptionDetails = (req, res) => {
   User.findOne({ email })
     .then((result) => {
       // console.log(result.razorpayDetails);
-      res.status(200).json(result.razorpayDetails)
+      res.status(200).json(result.razorpayDetails);
     })
     .catch((e) => console.log("error at getSubscriptionDetails: ", e.message));
 };
+
+const scheduleInfoUpdate = (req, res) => {
+  const email = req.userEmail;
+  const{youtube, facebook, twitch, iso8601Date} = req.body;
+  User.findOneAndUpdate({ email },
+    {
+      $push: {
+        upcomingStreams: req.body,
+      },
+    })
+    .then(() => {
+      console.log("live Schedule info updated");
+    })
+    .catch((e) =>
+      console.log("error from updating schedule info: ", e.message)
+    );
+};
+
+const getUpcomingLives = (req, res) =>{
+  const email = req.userEmail;
+  User.findOne({email}).then((result)=>{
+    const upcomingLives = result.upcomingStreams;
+    console.log("sending the upcoming lives to client: ", result);
+    res.status(200).json(upcomingLives);
+  }).catch((e)=>console.log("error at getpastlives: ", e.message))
+}
 
 export {
   signupService,
@@ -335,4 +370,6 @@ export {
   createTicket,
   gettickets,
   getSubscriptionDetails,
+  scheduleInfoUpdate,
+  getUpcomingLives,
 };

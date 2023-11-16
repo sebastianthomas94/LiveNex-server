@@ -23,6 +23,8 @@ const setLiveData = (req, res) => {
     broadcast,
     youtubeLiveUrl,
     facebookLiveUrl,
+    videoUrl,
+    twitchLiveUrl,
   } = req.body;
   const isFacebookPresent = destinations.includes("facebook");
   const isYoutubePresent = destinations.includes("youtube");
@@ -38,6 +40,8 @@ const setLiveData = (req, res) => {
           broadcast,
           ...(youtubeLiveUrl && { youtubeLiveUrl }),
           ...(facebookLiveUrl && { facebookLiveUrl }),
+          ...(twitchLiveUrl && { twitchLiveUrl }),
+          videoUrl,
         },
       },
     }

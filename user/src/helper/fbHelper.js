@@ -42,12 +42,18 @@ const getUserIdFB = async (accessTokenFB) => {
 };
 
 const getRtmpUrlFB = async (userId, accessToken, req) => {
-  const postData = {
-    status: "LIVE_NOW",
-    title: req.session.title,
-    description: req.session.description,
-  };
+  const { title, selectedDateTime, description } = req.session;
+  const date = new Date(selectedDateTime);
+  const timestamp = Math.floor(date.getTime() / 1000);
+  const date1 = new Date(timestamp * 1000);
 
+  const postData = {
+    status: selectedDateTime ? "UNPUBLISHED" : "LIVE_NOW",
+    title: title,
+    description: description,
+    ...(selectedDateTime && {event_params: JSON.stringify({ start_time: timestamp })}),
+  };
+console.log(postData);
   try {
     const response = await axios.post(
       `https://graph.facebook.com/${userId}/live_videos`,
@@ -59,11 +65,19 @@ const getRtmpUrlFB = async (userId, accessToken, req) => {
         },
       }
     );
-    console.log("rtmp url:", response.data.stream_url);
-    console.log("response: ", response.data);
-    return { rtmpUrl: response.data.stream_url, liveVideoId: response.data.id };
+    console.log("-------", response);
+    if (response.data && response.data.stream_url) {
+      console.log("RTMP URL:", response.data.stream_url);
+      return {
+        rtmpUrl: response.data.stream_url,
+        liveVideoId: response.data.id,
+      };
+    } else {
+      console.error("Unexpected response format:", response.data);
+      return null; // or handle the error as needed
+    }
   } catch (error) {
-    console.error("Error posting live video:", error);
+    console.error("Error posting live video:", error.message);
   }
 };
 

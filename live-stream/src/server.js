@@ -6,6 +6,7 @@ import { Server } from "socket.io";
 import { spawn } from "child_process";
 import cookie from "cookie";
 import jwt from "jsonwebtoken";
+import corn from "node-cron";
 import {
   youtubeSettings,
   facebookSettings,
@@ -15,13 +16,24 @@ import {
 import { getLiveComments } from "../helpers/facebookHelper.js";
 import {} from "../helpers/twitchHelper.js";
 import { getYoutubeComments } from "../helpers/youtubeHelper.js";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3"; // Import S3Client and GetObjectCommand
+import fs from "fs";
+import { downloadFromS3 } from "../helpers/broadcastHelper.js";
+import { scheduleWatchdog } from "../helpers/scheduleWatchdog.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../.env") });
 
-
 const app = express();
+
+const s3Client = new S3Client({
+  region: process.env.AMAZON_S3_REGION,
+  credentials: {
+    accessKeyId: process.env.AMAZON_S3_ACCESS_KEY,
+    secretAccessKey: process.env.AMAZON_S3_SECRET_KEY,
+  },
+});
 
 const io = new Server(8200, {
   cors: {
@@ -29,10 +41,13 @@ const io = new Server(8200, {
   },
 });
 
-io.on("connection", (socket) => {
+io.on("connection", async (socket) => {
   let counter = 0;
   let lastTime = new Date(),
-    nowTime;
+    nowTime,
+    localFilePath;
+  localFilePath = path.join(__dirname, "downloaded_video.mp4");
+
   const sentComments = new Set();
   function filterNewComments(newComments) {
     const unsentComments = [];
@@ -54,7 +69,6 @@ io.on("connection", (socket) => {
   console.log("twitch_rtmp url:", socket.handshake.query.twitch_rtmp);
   console.log("YOUTUBE LiveChatId:", socket.handshake.query.YT_liveChatId);
   const cookies = cookie.parse(socket.request.headers.cookie || "");
-  console.log("json web token:", cookies.jwt);
 
   const { YT_accessToken } = jwt.verify(cookies.jwt, process.env.JWT_SECRET);
   const youtube_rtmp = socket.handshake.query.youtube_rtmp;
@@ -65,71 +79,86 @@ io.on("connection", (socket) => {
   const facebook_accesstoken = socket.handshake.query.facebook_accesstoken;
   const broadcast = socket.handshake.query.broadcast;
   const fileName = socket.handshake.query.fileName;
-
-  const videoFilePath = "/home/sebastian/Desktop/Brototype/Week 23/LiveNex-rollback/LiveNex-server/api-gateway/public/videos/"+ fileName;
+  const scheduledTime = socket.handshake.query.scheduledTime;
+  const scheduling = socket.handshake.query.scheduling;
+  const videoFilePath =
+    "/home/sebastian/Desktop/Brototype/Week 23/LiveNex-rollback/LiveNex-server/api-gateway/public/videos/" +
+    fileName;
 
   let ffmpegInput, ffmpeg;
   let facebookCommand, twitchCommand, youtubeCommand;
-  if (!broadcast)
-    ffmpegInput = inputSettings.concat(
-      youtube_rtmp && youtubeSettings(youtube_rtmp),
-      facebook_rtmp && facebookSettings(facebook_rtmp),
-      twitch_rtmp && customRtmpSettings(twitch_rtmp)
-    );
-  else {
-    facebookCommand = [].concat(
-      ["-re", "-i", videoFilePath],
-      facebook_rtmp && facebookSettings(facebook_rtmp)
-    );
-    twitchCommand = [].concat(
-      ["-re", "-i", videoFilePath],
-      twitch_rtmp && customRtmpSettings(twitch_rtmp)
-    );
-    youtubeCommand = [].concat(
-      ["-re", "-i", videoFilePath],
-      youtube_rtmp && youtubeSettings(youtube_rtmp)
-    );
-
-  }
-  try {
-    if (!broadcast) ffmpeg = spawn("ffmpeg", ffmpegInput);
-    else {
-      const startStreaming = (command) => {
-        ffmpeg = spawn("ffmpeg", command);
-      };
-      youtube_rtmp && startStreaming(youtubeCommand);
-      facebook_rtmp && startStreaming(facebookCommand);
-      twitch_rtmp && startStreaming(twitchCommand);
-      console.log("broadcasting the stream: ");
-    }
-
-    ffmpeg.on("start", (command) => {
-      console.log("FFmpeg command:", command);
-    });
-
-    ffmpeg.on("close", (code, signal) => {
-      console.log(
-        "FFmpeg child process closed, code " + code + ", signal " + signal
+  if (!scheduling) {
+    if (!broadcast)
+      ffmpegInput = inputSettings.concat(
+        youtube_rtmp && youtubeSettings(youtube_rtmp),
+        facebook_rtmp && facebookSettings(facebook_rtmp),
+        twitch_rtmp && customRtmpSettings(twitch_rtmp)
       );
-    });
+    else {
+      facebookCommand = [].concat(
+        ["-re", "-i", localFilePath],
+        facebook_rtmp && facebookSettings(facebook_rtmp)
+      );
+      twitchCommand = [].concat(
+        ["-re", "-i", localFilePath],
+        twitch_rtmp && customRtmpSettings(twitch_rtmp)
+      );
+      youtubeCommand = [].concat(
+        ["-re", "-i", localFilePath],
+        youtube_rtmp && youtubeSettings(youtube_rtmp)
+      );
+    }
+    try {
+      if (!broadcast) ffmpeg = spawn("ffmpeg", ffmpegInput);
+      else {
+        const videoS3Bucket = process.env.BUCKET;
+        const videoS3Key = fileName;
+        const s3VideoUrl = `s3://${videoS3Bucket}/${videoS3Key}`;
 
-    ffmpeg.stdin.on("error", (e) => {
-      console.log("FFmpeg STDIN Error", e);
-    });
+        await downloadFromS3(
+          videoS3Key,
+          fs,
+          s3Client,
+          GetObjectCommand,
+          localFilePath,
+        );
+        const startStreaming = (command) => {
+          ffmpeg = spawn("ffmpeg", command);
+        };
+        youtube_rtmp && startStreaming(youtubeCommand);
+        facebook_rtmp && startStreaming(facebookCommand);
+        twitch_rtmp && startStreaming(twitchCommand);
+        console.log("broadcasting the stream: ");
+      }
 
-    ffmpeg.stderr.on("data", (data) => {
-      console.log("FFmpeg STDERR:", data.toString());
-    });
-    socket.on("message", (msg) => {
-      //console.log("frames ",msg);
-      ffmpeg.stdin.write(msg);
-    });
-    socket.conn.on("close", (e) => {
-      console.log("kill: SIGINT");
-      ffmpeg.kill("SIGINT");
-    });
-  } catch (error) {
-    console.error("Error starting FFmpeg:", error);
+      ffmpeg.on("start", (command) => {
+        console.log("FFmpeg command:", command);
+      });
+
+      ffmpeg.on("close", (code, signal) => {
+        console.log(
+          "FFmpeg child process closed, code " + code + ", signal " + signal
+        );
+      });
+
+      ffmpeg.stdin.on("error", (e) => {
+        console.log("FFmpeg STDIN Error", e);
+      });
+
+      ffmpeg.stderr.on("data", (data) => {
+        console.log("FFmpeg STDERR:", data.toString());
+      });
+      socket.on("message", (msg) => {
+        //console.log("frames ",msg);
+        ffmpeg.stdin.write(msg);
+      });
+      socket.conn.on("close", (e) => {
+        console.log("kill: SIGINT");
+        ffmpeg.kill("SIGINT");
+      });
+    } catch (error) {
+      console.error("Error starting FFmpeg:", error);
+    }
   }
 
   socket.on("reply", (data) => {
@@ -191,5 +220,25 @@ io.on("connection", (socket) => {
     } catch (error) {
       console.error("Error fetching comments:", error.message);
     }
+  });
+
+  socket.on("Schedule Live", () => {
+    // Extract relevant parameters from socket.handshake.query
+
+    // Call the function to start broadcasting when scheduled time is approached
+    scheduleWatchdog({
+      scheduledTime,
+      youtube_rtmp,
+      facebook_rtmp,
+      twitch_rtmp,
+      fileName,
+      localFilePath,
+      s3Client,
+      fs,
+      GetObjectCommand,
+      facebook_liveVideoId,
+      facebook_accesstoken,
+      
+    });
   });
 });

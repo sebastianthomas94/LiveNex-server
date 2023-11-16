@@ -32,12 +32,14 @@ const twitchOauthCallback = async (req, res) => {
     console.log("user id:", user_id);
     console.log("UserName:", userName);
     //save user id
+    const twitchLiveUrl = `https://www.twitch.tv/${userName}`;
     const stream_key = await getStreamKey(accessToken, user_id);
     const rtmp_url = "rtmp://live.twitch.tv/app/" + stream_key;
     console.log(rtmp_url);
     const rtmp = {
       twitch_rtmp: rtmp_url,
       profilePicture,
+      twitchLiveUrl,
     };
     res.send(`
     <script>
